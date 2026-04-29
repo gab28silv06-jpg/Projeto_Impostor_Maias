@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O Impostor em Os Maias - Escalado</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>O Impostor em Os Maias</h1>
+
+        <div id="start-screen" class="screen active">
+            <button id="create-room-btn">Sou Anfitrião</button>
+            <input type="text" id="player-name-input" placeholder="O teu nome (ex: Carlos da Maia)">
+            <input type="text" id="room-id-input" placeholder="Código da Sala">
+            <button id="join-room-btn">Sou Jogador</button>
+        </div>
+
+        <div id="lobby-screen" class="screen">
+            <h2>Sala: <span id="lobby-room-id"></span></h2>
+            <h3>Jogadores na Sala:</h3>
+            <ul id="player-list"></ul>
+            <button id="start-game-btn" disabled>Iniciar Jogo (mín. 3 jogadores)</button>
+            <p id="lobby-message"></p>
+        </div>
+
+        <div id="game-screen" class="screen">
+            <h2>O teu Papel: <span id="player-role"></span></h2>
+            <h3>A tua Personagem: <span id="player-character"></span></h3>
+            <p id="game-status-message"></p>
+
+            <div id="task-section" class="game-section">
+                <h3>Tarefa Atual:</h3>
+                <p id="current-task-description"></p>
+                <textarea id="task-answer-input" placeholder="Escreve a tua resposta aqui..." rows="4"></textarea>
+                <button id="submit-answer-btn">Submeter Resposta</button>
+                <button id="sabotage-btn" class="impostor-action">Sabotar Resposta</button>
+                <p id="task-status-message"></p>
+
+                <div id="host-validation-section" class="host-only">
+                    <h4>Respostas Submetidas:</h4>
+                    <ul id="submitted-answers-list"></ul>
+                    <button id="request-next-task-btn" class="host-action" disabled>Próxima Tarefa / Iniciar Discussão</button>
+                </div>
+            </div>
+
+            <div id="discussion-section" class="game-section">
+                <h3>Fase de Discussão</h3>
+                <p>Discute com os outros jogadores quem poderá ser o impostor.</p>
+                <ul id="discussion-player-list"></ul>
+                <button id="start-voting-btn" class="host-action">Iniciar Votação</button>
+            </div>
+
+            <div id="voting-section" class="game-section">
+                <h3>Fase de Votação</h3>
+                <p>Vota em quem achas que é o impostor.</p>
+                <select id="vote-target-select"></select>
+                <button id="submit-vote-btn">Votar</button>
+                <p id="voting-status-message"></p>
+            </div>
+
+            <div id="elimination-section" class="game-section">
+                <h3>Eliminação</h3>
+                <p id="eliminated-player-info"></p>
+            </div>
+
+            <div id="game-over-section" class="game-section">
+                <h3>Fim do Jogo!</h3>
+                <p id="game-winner-message"></p>
+            </div>
+        </div>
+
+        <div id="error-message" class="error-message"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
