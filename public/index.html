@@ -3,77 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>O Impostor em Os Maias - Escalado</title>
+    <title>O Impostor em Os Maias</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>O Impostor em Os Maias</h1>
 
-        <div id="start-screen" class="screen active">
-            <button id="create-room-btn">Sou Anfitrião</button>
-            <input type="text" id="player-name-input" placeholder="O teu nome (ex: Carlos da Maia)">
-            <input type="text" id="room-id-input" placeholder="Código da Sala">
-            <button id="join-room-btn">Sou Jogador</button>
-        </div>
+<div class="bg-floats" aria-hidden="true"></div>
 
-        <div id="lobby-screen" class="screen">
-            <h2>Sala: <span id="lobby-room-id"></span></h2>
-            <h3>Jogadores na Sala:</h3>
-            <ul id="player-list"></ul>
-            <button id="start-game-btn" disabled>Iniciar Jogo (mín. 3 jogadores)</button>
-            <p id="lobby-message"></p>
-        </div>
+<script>
+const items = [
+    '"Que vida tão parva!"', 'Carlos da Maia', 'O Ramalhete',
+    'João da Ega', 'Lisboa, 1875', 'Maria Eduarda',
+    'Afonso da Maia', '"A geração nova..."', 'A Toca',
+    'Eça de Queirós', 'Decadência', 'O Impostor'
+];
+const bg = document.querySelector('.bg-floats');
+items.forEach((text, i) => {
+    const el = document.createElement('span');
+    el.className = 'bg-word';
+    el.textContent = text;
+    el.style.cssText = `
+        left:${8 + (i * 17 % 84)}%;
+        top:${5 + (i * 13 % 88)}%;
+        animation-delay:${(i * 1.7).toFixed(1)}s;
+        animation-duration:${14 + (i % 5) * 3}s;
+        font-size:${0.7 + (i % 3) * 0.15}rem;
+    `;
+    bg.appendChild(el);
+});
+</script>
+<div class="container">
 
-        <div id="game-screen" class="screen">
-            <h2>O teu Papel: <span id="player-role"></span></h2>
-            <h3>A tua Personagem: <span id="player-character"></span></h3>
-            <p id="game-status-message"></p>
+    <header class="title-block">
+        <span class="subtitle-top">Lisboa · Século XIX</span>
+        <h1>O Impostor<br><em>em Os Maias</em></h1>
+        <p class="subtitle-bottom">Um jogo de dedução literária</p>
+    </header>
 
-            <div id="task-section" class="game-section">
-                <h3>Tarefa Atual:</h3>
-                <p id="current-task-description"></p>
-                <textarea id="task-answer-input" placeholder="Escreve a tua resposta aqui..." rows="4"></textarea>
-                <button id="submit-answer-btn">Submeter Resposta</button>
-                <button id="sabotage-btn" class="impostor-action">Sabotar Resposta</button>
-                <p id="task-status-message"></p>
+    <div class="rule"><span>✦</span></div>
 
-                <div id="host-validation-section" class="host-only">
-                    <h4>Respostas Submetidas:</h4>
-                    <ul id="submitted-answers-list"></ul>
-                    <button id="request-next-task-btn" class="host-action" disabled>Próxima Tarefa / Iniciar Discussão</button>
-                </div>
+    <!-- ECRÃ INICIAL -->
+    <div id="start-screen" class="screen active">
+        <div class="card">
+            <div class="card-section host-section">
+                <span class="section-label">Anfitrião</span>
+                <button id="create-room-btn">Criar Sala</button>
+                <p class="hint">Cria uma nova sala e partilha o código com os outros.</p>
             </div>
-
-            <div id="discussion-section" class="game-section">
-                <h3>Fase de Discussão</h3>
-                <p>Discute com os outros jogadores quem poderá ser o impostor.</p>
-                <ul id="discussion-player-list"></ul>
-                <button id="start-voting-btn" class="host-action">Iniciar Votação</button>
-            </div>
-
-            <div id="voting-section" class="game-section">
-                <h3>Fase de Votação</h3>
-                <p>Vota em quem achas que é o impostor.</p>
-                <select id="vote-target-select"></select>
-                <button id="submit-vote-btn">Votar</button>
-                <p id="voting-status-message"></p>
-            </div>
-
-            <div id="elimination-section" class="game-section">
-                <h3>Eliminação</h3>
-                <p id="eliminated-player-info"></p>
-            </div>
-
-            <div id="game-over-section" class="game-section">
-                <h3>Fim do Jogo!</h3>
-                <p id="game-winner-message"></p>
+            <div class="divider">ou</div>
+            <div class="card-section">
+                <span class="section-label">Jogador</span>
+                <input type="text" id="player-name-input" placeholder="O teu nome (ex: Carlos da Maia)">
+                <input type="text" id="room-id-input" placeholder="Código da Sala">
+                <button id="join-room-btn">Entrar na Sala</button>
             </div>
         </div>
-
-        <div id="error-message" class="error-message"></div>
     </div>
 
-    <script src="script.js"></script>
+    <!-- LOBBY -->
+    <div id="lobby-screen" class="screen">
+        <div class="card">
+            <div class="room-badge">
+                <span class="room-label">Sala</span>
+                <span id="lobby-room-id"></span>
+            </div>
+            <h2>Jogadores</h2>
+            <ul id="player-list"></ul>
+            <p id="lobby-message" class="status-text"></p>
+            <button id="start-game-btn" disabled>Iniciar Jogo <span style="opacity:.5;font-size:.8em">(mín. 3)</span></button>
+        </div>
+    </div>
+
+    <!-- JOGO -->
+    <div id="game-screen" class="screen">
+
+        <div class="role-banner">
+            <div class="role-item">
+                <span class="role-label">Papel</span>
+                <span id="player-role" class="role-value"></span>
+            </div>
+            <div class="role-item">
+                <span class="role-label">Personagem</span>
+                <span id="player-character" class="role-value character-value"></span>
+            </div>
+        </div>
+
+        <p id="game-status-message" class="game-status"></p>
+
+        <!-- Tarefas -->
+        <div id="task-section" class="game-section">
+            <div class="section-header">
+                <span class="section-icon-sm">📜</span>
+                <h3>Tarefa</h3>
+            </div>
+            <div class="task-scroll">
+                <p id="current-task-description"></p>
+            </div>
+            <textarea id="task-answer-input" placeholder="Escreve a tua resposta aqui..." rows="4"></textarea>
+            <div class="btn-row">
+                <button id="submit-answer-btn">Submeter</button>
+                <button id="sabotage-btn" class="impostor-action">Sabotar</button>
+            </div>
+            <span id="task-status-message" class="status-text"></span>
+
+            <div id="host-validation-section" class="host-only host-panel">
+                <h4>Respostas Submetidas</h4>
+                <ul id="submitted-answers-list" class="answers-list"></ul>
+                <button id="request-next-task-btn" class="host-action" disabled>Próxima Tarefa / Iniciar Discussão</button>
+            </div>
+        </div>
+
+        <!-- Discussão -->
+        <div id="discussion-section" class="game-section">
+            <div class="section-header">
+                <span class="section-icon-sm">💬</span>
+                <h3>Discussão</h3>
+            </div>
+            <p class="section-desc">Delibera com os outros jogadores sobre quem é o Impostor.</p>
+            <ul id="discussion-player-list"></ul>
+            <button id="start-voting-btn" class="host-action">Iniciar Votação</button>
+        </div>
+
+        <!-- Votação -->
+        <div id="voting-section" class="game-section">
+            <div class="section-header">
+                <span class="section-icon-sm">⚖</span>
+                <h3>Votação</h3>
+            </div>
+            <p class="section-desc">Vota em quem achas que é o Impostor.</p>
+            <select id="vote-target-select"></select>
+            <button id="submit-vote-btn">Votar</button>
+            <span id="voting-status-message" class="status-text"></span>
+        </div>
+
+        <!-- Eliminação -->
+        <div id="elimination-section" class="game-section">
+            <div class="section-header">
+                <span class="section-icon-sm">⚔</span>
+                <h3>Eliminação</h3>
+            </div>
+            <p id="eliminated-player-info" class="elimination-text"></p>
+        </div>
+
+        <!-- Fim do jogo -->
+        <div id="game-over-section" class="game-section game-over-panel">
+            <h3>Fim do Jogo</h3>
+            <p id="game-winner-message" class="winner-text"></p>
+            <button onclick="location.reload()">Jogar Novamente</button>
+        </div>
+
+    </div>
+
+    <div id="error-message" class="error-message"></div>
+
+</div>
+<script src="script.js"></script>
 </body>
 </html>
