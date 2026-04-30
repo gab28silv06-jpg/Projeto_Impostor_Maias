@@ -1,5 +1,9 @@
 const socket = new WebSocket("ws://localhost:3000");
 
+const callVoteBtn = document.getElementById("call-vote-btn");
+const voteCallCount = document.getElementById("vote-call-count");
+const voteCallReq = document.getElementById("vote-call-req");
+
 const startScreen = document.getElementById("start-screen");
 const lobbyScreen = document.getElementById("lobby-screen");
 const gameScreen = document.getElementById("game-screen");
@@ -22,7 +26,7 @@ const taskSection = document.getElementById("task-section");
 const currentTaskDescription = document.getElementById("current-task-description");
 const taskAnswerInput = document.getElementById("task-answer-input");
 const submitAnswerBtn = document.getElementById("submit-answer-btn");
-const sabotageBtn = document.getElementById("sabotage-btn"); 
+const sabotageBtn = document.getElementById("sabotage-btn");
 const taskStatusMessage = document.getElementById("task-status-message");
 
 const hostValidationSection = document.getElementById("host-validation-section");
@@ -50,18 +54,23 @@ let currentRoomId = null;
 let isHost = false;
 let myRole = null;
 let myName = null;
-
-// Armazenar submissões para o host para gerir o estado localmente
+let allPlayersSubmitted = false;
 let hostCurrentSubmissions = [];
+
+// Listener do botão de votação — só se regista uma vez aqui
+callVoteBtn.addEventListener("click", () => {
+    if (socket.readyState === WebSocket.OPEN && !isHost) {
+        socket.send(JSON.stringify({ type: "callVote", roomId: currentRoomId }));
+        callVoteBtn.disabled = true;
+    }
+});
 
 function showScreen(screenId) {
     startScreen.classList.remove("active");
     lobbyScreen.classList.remove("active");
     gameScreen.classList.remove("active");
     document.getElementById(screenId).classList.add("active");
-    errorMessageDiv.textContent = ""; // Limpa mensagens de erro
-
-    // Esconder todas as secções do jogo por padrão
+    errorMessageDiv.textContent = "";
     taskSection.style.display = "none";
     hostValidationSection.style.display = "none";
     discussionSection.style.display = "none";
@@ -70,26 +79,25 @@ function showScreen(screenId) {
     gameOverSection.style.display = "none";
 }
 
-function displayError(message) {
-    errorMessageDiv.textContent = message;
+function displayError(msg) {
+    errorMessageDiv.textContent = msg;
 }
 
-socket.onopen = () => {
-    console.log("Conectado ao servidor WebSocket");
-};
+socket.onopen = () => console.log("Conectado ao servidor WebSocket");
 
 socket.onmessage = event => {
     const data = JSON.parse(event.data);
     console.log("Mensagem do servidor:", data);
 
     switch (data.type) {
+
         case "roomCreated":
             currentRoomId = data.roomId;
             isHost = true;
             lobbyRoomId.textContent = currentRoomId;
             playerList.innerHTML = "<li>Tu (Anfitrião)</li>";
             startGameBtn.style.display = "block";
-            startGameBtn.disabled = true; // Começa desativado
+            startGameBtn.disabled = true;
             lobbyMessage.textContent = "À espera de jogadores...";
             showScreen("lobby-screen");
             break;
@@ -99,65 +107,67 @@ socket.onmessage = event => {
             isHost = false;
             myName = data.playerName;
             lobbyRoomId.textContent = currentRoomId;
-            startGameBtn.style.display = "none"; // Jogadores não veem o botão de iniciar
-            lobbyMessage.textContent = `Bem-vindo à sala ${data.roomId}, ${data.playerName}! À espera do anfitrião iniciar o jogo.`;
+            startGameBtn.style.display = "none";
+            lobbyMessage.textContent = `Bem-vindo à sala ${data.roomId}, ${data.playerName}! À espera do anfitrião.`;
             showScreen("lobby-screen");
             break;
 
         case "playerJoined":
             if (isHost) {
                 updatePlayerList(data.currentPlayers);
-                lobbyMessage.textContent = `Novo jogador: ${data.playerName}. Total: ${data.currentPlayers.length} jogadores.`;
-                startGameBtn.disabled = data.currentPlayers.length < 3; // Ativa/desativa botão
+                lobbyMessage.textContent = `Novo jogador: ${data.playerName}. Total: ${data.currentPlayers.length}.`;
+                startGameBtn.disabled = data.currentPlayers.length < 3;
             }
             break;
 
         case "playerLeft":
             if (isHost) {
                 updatePlayerList(data.currentPlayers);
-                lobbyMessage.textContent = `Jogador ${data.playerName} saiu. Total: ${data.currentPlayers.length} jogadores.`;
-                startGameBtn.disabled = data.currentPlayers.length < 3; // Ativa/desativa botão
+                lobbyMessage.textContent = `${data.playerName} saiu. Total: ${data.currentPlayers.length}.`;
+                startGameBtn.disabled = data.currentPlayers.length < 3;
             }
             break;
 
         case "gameStarted":
             myRole = data.role;
             playerRole.textContent = data.role;
-            playerRole.className = data.role; // Adiciona classe para estilo
+            playerRole.className = data.role;
             playerCharacter.textContent = data.character;
-            gameStatusMessage.textContent = `O jogo começou! És o ${data.role} e a tua personagem é ${data.character}.`;
+            gameStatusMessage.textContent = `O jogo começou! És o ${data.role} — personagem: ${data.character}.`;
             showScreen("game-screen");
             break;
 
         case "newTask":
+            allPlayersSubmitted = false;
+            hostCurrentSubmissions = [];
+
             taskSection.style.display = "block";
             discussionSection.style.display = "none";
             votingSection.style.display = "none";
             eliminationSection.style.display = "none";
+
             currentTaskDescription.textContent = data.task;
             taskStatusMessage.textContent = "";
-            taskAnswerInput.value = ""; // Limpar input anterior
-            submitAnswerBtn.disabled = false;
-            taskAnswerInput.disabled = false;
+            sabotageBtn.style.display = "none";
 
-            sabotageBtn.style.display = "none"; // Esconder o botão de sabotagem
+            if (callVoteBtn) callVoteBtn.disabled = false;
+            if (voteCallCount) voteCallCount.textContent = "0";
+            if (voteCallReq) voteCallReq.textContent = "0";
 
             if (isHost) {
-                hostValidationSection.style.display = "block"; // Garantir que a secção do host é visível
-                submittedAnswersList.innerHTML = ""; // Limpar lista de submissões
+                hostValidationSection.style.display = "block";
+                taskAnswerInput.style.display = "none";
+                submitAnswerBtn.style.display = "none";
+                submittedAnswersList.innerHTML = "";
                 requestNextTaskBtn.disabled = true;
-                hostCurrentSubmissions = []; // Resetar submissões locais do host
-
-                // Se houver submissões pendentes (e.g., host recarregou), exibi-las
-                if (data.pendingSubmissions && data.pendingSubmissions.length > 0) {
-                    data.pendingSubmissions.forEach(submission => {
-                        hostCurrentSubmissions.push(submission);
-                        updateSubmittedAnswersList(submission);
-                    });
-                    checkHostNextTaskButtonState();
-                }
+                requestNextTaskBtn.textContent = "Aguardar respostas... (0 recebidas)";
             } else {
                 hostValidationSection.style.display = "none";
+                taskAnswerInput.style.display = "block";
+                taskAnswerInput.value = "";
+                taskAnswerInput.disabled = false;
+                submitAnswerBtn.style.display = "block";
+                submitAnswerBtn.disabled = false;
             }
             break;
 
@@ -168,11 +178,37 @@ socket.onmessage = event => {
                 checkHostNextTaskButtonState();
             }
             break;
+        
+        case "allAnswers": {
+            taskStatusMessage.textContent = "Todos responderam!";
+            
+            // Mostrar respostas de todos
+            const answersDiv = document.createElement("div");
+            answersDiv.innerHTML = "<h4>Respostas de todos:</h4>";
+            data.submissions.forEach(sub => {
+                const p = document.createElement("p");
+                p.innerHTML = `<strong>${sub.playerName}:</strong> ${sub.answer}`;
+                answersDiv.appendChild(p);
+            });
+            
+            // Adicionar ao ecrã (remove anterior se existir)
+            const existing = document.getElementById("all-answers-display");
+            if (existing) existing.remove();
+            answersDiv.id = "all-answers-display";
+            taskSection.appendChild(answersDiv);
+            break;
+        }
 
-        case "playerSubmittedAnswer":
-            if (!isHost) {
-                taskStatusMessage.textContent = `${data.playerName} submeteu a sua resposta.`;
+        case "allSubmissionsReceived":
+            if (isHost) {
+                allPlayersSubmitted = true;
+                checkHostNextTaskButtonState();
             }
+            break;
+
+        case "updateVoteCalls":
+            if (voteCallCount) voteCallCount.textContent = data.current;
+            if (voteCallReq) voteCallReq.textContent = data.required;
             break;
 
         case "answerSubmitted":
@@ -181,25 +217,24 @@ socket.onmessage = event => {
             taskAnswerInput.disabled = true;
             break;
 
-        case "answerValidated":
-            // Atualizar o estado da submissão na UI de todos os jogadores (se visível)
-            const submissionItem = document.getElementById(`submission-${data.playerName}`);
-            if (submissionItem) {
-                submissionItem.innerHTML = `
-                    <strong>${data.playerName} (${submissionItem.dataset.role}):</strong> ${submissionItem.dataset.answer} - ${data.status === 'valid' ? 'Válida' : 'Sabotada'}
-                `;
+        case "playerSubmittedAnswer":
+            if (!isHost) {
+                taskStatusMessage.textContent = `${data.playerName} submeteu a sua resposta.`;
             }
-            gameStatusMessage.textContent = `${data.playerName}'s resposta foi marcada como ${data.status === 'valid' ? 'Válida' : 'Sabotada'}.`;
-            
+            break;
+
+        case "answerValidated": {
+            const item = document.getElementById(`submission-${data.playerName}`);
+            if (item) {
+                item.innerHTML = `<strong>${data.playerName} (${item.dataset.role}):</strong> ${item.dataset.answer} — ${data.status === "valid" ? "✅ Válida" : "❌ Sabotada"}`;
+            }
             if (isHost) {
-                // Atualizar o estado local do host e verificar o botão
-                const index = hostCurrentSubmissions.findIndex(sub => sub.playerName === data.playerName);
-                if (index !== -1) {
-                    hostCurrentSubmissions[index].status = data.status;
-                }
+                const idx = hostCurrentSubmissions.findIndex(s => s.playerName === data.playerName);
+                if (idx !== -1) hostCurrentSubmissions[idx].status = data.status;
                 checkHostNextTaskButtonState();
             }
             break;
+        }
 
         case "hostCanRequestNextTask":
             if (isHost) {
@@ -219,13 +254,7 @@ socket.onmessage = event => {
             eliminationSection.style.display = "none";
             updateDiscussionPlayerList(data.players);
             startVotingBtn.style.display = isHost ? "block" : "none";
-            startVotingBtn.disabled = !isHost; // Apenas host pode iniciar
-            break;
-
-        case "hostCanStartVoting":
-            if (isHost) {
-                startVotingBtn.disabled = false;
-            }
+            startVotingBtn.disabled = false;
             break;
 
         case "startVoting":
@@ -238,7 +267,7 @@ socket.onmessage = event => {
             break;
 
         case "playerVoted":
-            votingStatusMessage.textContent = `${data.voter} votou em ${data.target}.`;
+            votingStatusMessage.textContent = `${data.voter} votou.`;
             break;
 
         case "playerEliminated":
@@ -253,177 +282,151 @@ socket.onmessage = event => {
             eliminatedPlayerInfo.textContent = data.message;
             break;
 
-        case "gameOver":
+        case "gameOver": {
             gameScreen.classList.remove("active");
+            gameOverSection.style.display = "block";
             gameOverSection.classList.add("active");
-            gameWinnerMessage.textContent = (data.winner === "innocentsWin") ? "Os Inocentes Venceram!" : "O Impostor Venceu!";
+            const isImpostor = (myRole === "Impostor");
+            const innocentsWon = (data.winner === "innocentsWin");
+            const won = (innocentsWon && !isImpostor) || (!innocentsWon && isImpostor);
+            gameWinnerMessage.innerHTML = won
+                ? `<span style="color:#4CAF50;font-size:2em;font-weight:bold">Vitória!</span><br><br>${data.reason}`
+                : `<span style="color:#F44336;font-size:2em;font-weight:bold">Derrota!</span><br><br>${data.reason}`;
             break;
+        }
 
         case "error":
             displayError(data.message);
-            if (data.message.includes("Sala encerrada")) {
-                setTimeout(() => showScreen("start-screen"), 3000);
-            }
+            if (data.message.includes("encerrada")) setTimeout(() => showScreen("start-screen"), 3000);
             break;
     }
 };
 
 socket.onclose = () => {
-    console.log("Desconectado do servidor WebSocket");
-    displayError("Conexão com o servidor perdida. Por favor, recarrega a página.");
+    displayError("Conexão perdida. Por favor, recarrega a página.");
     showScreen("start-screen");
 };
 
-socket.onerror = error => {
-    console.error("Erro no WebSocket:", error);
-    displayError("Ocorreu um erro na conexão. Verifica se o servidor está a correr.");
+socket.onerror = () => {
+    displayError("Erro na conexão. Verifica se o servidor está a correr.");
 };
 
 createRoomBtn.addEventListener("click", () => {
-    if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "createRoom" }));
-    } else {
-        displayError("Não conectado ao servidor. Tenta novamente.");
-    }
+    if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "createRoom" }));
+    else displayError("Não conectado ao servidor.");
 });
 
 joinRoomBtn.addEventListener("click", () => {
     const playerName = playerNameInput.value.trim();
     const roomId = roomIdInput.value.trim().toUpperCase();
-    if (!playerName) {
-        displayError("Por favor, insere o teu nome.");
-        return;
-    }
-    if (!roomId) {
-        displayError("Por favor, insere o código da sala.");
-        return;
-    }
-
+    if (!playerName) return displayError("Por favor, insere o teu nome.");
+    if (!roomId) return displayError("Por favor, insere o código da sala.");
     if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "joinRoom", playerName: playerName, roomId: roomId }));
-    } else {
-        displayError("Não conectado ao servidor. Tenta novamente.");
-    }
+        socket.send(JSON.stringify({ type: "joinRoom", playerName, roomId }));
+    } else displayError("Não conectado ao servidor.");
 });
 
 startGameBtn.addEventListener("click", () => {
     if (isHost && currentRoomId && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "startGame", roomId: currentRoomId }));
-    } else {
-        displayError("Não és o anfitrião ou a sala não está pronta.");
     }
 });
 
 submitAnswerBtn.addEventListener("click", () => {
     const answer = taskAnswerInput.value.trim();
-    if (!answer) {
-        displayError("Por favor, escreve a tua resposta.");
-        return;
-    }
+    if (!answer) return displayError("Por favor, escreve a tua resposta.");
     if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "submitAnswer", roomId: currentRoomId, answer: answer }));
-    } else {
-        displayError("Não conectado ao servidor. Tenta novamente.");
+        socket.send(JSON.stringify({ type: "submitAnswer", roomId: currentRoomId, answer }));
     }
 });
 
 requestNextTaskBtn.addEventListener("click", () => {
     if (isHost && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "requestNextTask", roomId: currentRoomId }));
-    } else {
-        displayError("Não és o anfitrião ou não é o momento de pedir a próxima tarefa.");
     }
 });
 
 startVotingBtn.addEventListener("click", () => {
     if (isHost && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "startVoting", roomId: currentRoomId }));
-    } else {
-        displayError("Não és o anfitrião ou não é o momento de votar.");
     }
 });
 
 submitVoteBtn.addEventListener("click", () => {
     const target = voteTargetSelect.value;
-    if (!target) {
-        displayError("Seleciona um jogador para votar.");
-        return;
-    }
+    if (!target) return displayError("Seleciona um jogador para votar.");
     if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "vote", roomId: currentRoomId, targetPlayerName: target }));
-        submitVoteBtn.disabled = true; // Prevenir múltiplos votos
+        submitVoteBtn.disabled = true;
         votingStatusMessage.textContent = `Votaste em ${target}. À espera dos outros...`;
-    } else {
-        displayError("Não conectado ao servidor. Tenta novamente.");
     }
 });
 
 function updatePlayerList(players) {
-    playerList.innerHTML = "";
-    players.forEach(pName => {
+    playerList.innerHTML = "<li>Tu (Anfitrião)</li>";
+    players.forEach(name => {
         const li = document.createElement("li");
-        li.textContent = pName;
+        li.textContent = name;
         playerList.appendChild(li);
     });
-    // Adiciona o host à lista (o host já se considera na sala)
-    const hostLi = document.createElement("li");
-    hostLi.textContent = "Tu (Anfitrião)";
-    playerList.prepend(hostLi);
 }
 
 function updateDiscussionPlayerList(players) {
     discussionPlayerList.innerHTML = "";
-    players.forEach(pName => {
+    players.forEach(name => {
         const li = document.createElement("li");
-        li.textContent = pName;
+        li.textContent = name;
         discussionPlayerList.appendChild(li);
     });
 }
 
 function populateVoteTargetSelect(players) {
-    voteTargetSelect.innerHTML = "<option value=\"\">Seleciona um jogador</option>";
-    players.filter(p => p !== myName).forEach(pName => { // Não pode votar em si mesmo
-        const option = document.createElement("option");
-        option.value = pName;
-        option.textContent = pName;
-        voteTargetSelect.appendChild(option);
+    voteTargetSelect.innerHTML = `<option value="">Seleciona um jogador</option>`;
+    voteTargetSelect.innerHTML += `<option value="skip">⏩ Fazer Skip</option>`;
+    players.filter(p => p !== myName).forEach(name => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        voteTargetSelect.appendChild(opt);
     });
 }
 
 function updateSubmittedAnswersList(submission) {
     const li = document.createElement("li");
     li.id = `submission-${submission.playerName}`;
-    li.dataset.answer = submission.answer; // Guardar a resposta original para reexibir
-    li.dataset.role = submission.role; // Guardar o role para reexibir
+    li.dataset.answer = submission.answer;
+    li.dataset.role = submission.role;
     li.innerHTML = `
         <strong>${submission.playerName} (${submission.role}):</strong> ${submission.answer}
-        <button class="validate-btn" data-player="${submission.playerName}" data-status="valid">Válida</button>
-        <button class="validate-btn" data-player="${submission.playerName}" data-status="sabotaged">Sabotada</button>
+        <button class="validate-btn" data-player="${submission.playerName}" data-status="valid">✅ Válida</button>
+        <button class="validate-btn" data-player="${submission.playerName}" data-status="sabotaged">❌ Sabotada</button>
     `;
     submittedAnswersList.appendChild(li);
-
-    li.querySelectorAll(".validate-btn").forEach(button => {
-        button.addEventListener("click", (event) => {
-            const player = event.target.dataset.player;
-            const status = event.target.dataset.status;
+    li.querySelectorAll(".validate-btn").forEach(btn => {
+        btn.addEventListener("click", e => {
+            const player = e.target.dataset.player;
+            const status = e.target.dataset.status;
             if (socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: "hostValidateAnswer", roomId: currentRoomId, playerName: player, status: status }));
+                socket.send(JSON.stringify({ type: "hostValidateAnswer", roomId: currentRoomId, playerName: player, status }));
             }
         });
     });
 }
 
 function checkHostNextTaskButtonState() {
-    if (isHost) {
-        const allValidated = hostCurrentSubmissions.every(sub => sub.status !== "pending");
-        requestNextTaskBtn.disabled = !allValidated;
-        if (allValidated) {
-            requestNextTaskBtn.textContent = "Próxima Tarefa / Iniciar Discussão";
-        } else {
-            requestNextTaskBtn.textContent = "Aguardar validação das respostas...";
-        }
+    if (!isHost) return;
+    const allValidated = hostCurrentSubmissions.length > 0 &&
+        hostCurrentSubmissions.every(s => s.status !== "pending");
+
+    requestNextTaskBtn.disabled = !(allValidated && allPlayersSubmitted);
+
+    if (!allPlayersSubmitted) {
+        requestNextTaskBtn.textContent = `Aguardar respostas... (${hostCurrentSubmissions.length} recebidas)`;
+    } else if (!allValidated) {
+        requestNextTaskBtn.textContent = "Validar todas as respostas...";
+    } else {
+        requestNextTaskBtn.textContent = "Próxima Tarefa / Iniciar Discussão";
     }
 }
 
-// Inicializa o ecrã
 showScreen("start-screen");
